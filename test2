@@ -1,0 +1,281 @@
+--[[
+    NotificationSystem.lua
+    A sleek, modern notification system with centered design and smooth animations.
+]]
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+-- Configuration
+local Config = {
+    MAX_WIDTH = 300,
+    MIN_WIDTH = 200,
+    CORNER_RADIUS = 12,
+    FONT = Enum.Font.GothamBold,
+    TITLE_SIZE = 18,
+    MESSAGE_SIZE = 14,
+    DEFAULT_DURATION = 4,
+    FADE_TIME = 0.5,
+    PADDING = 16,
+    MARGIN = 8,
+    COLORS = {
+        BACKGROUND = Color3.fromRGB(32, 34, 37),
+        TEXT = Color3.fromRGB(255, 255, 255),
+        ACCENT = Color3.fromRGB(114, 137, 218),
+        PROGRESS = Color3.fromRGB(255, 255, 255)
+    },
+    SOUNDS = {
+        SHOW = "rbxassetid://6518811702",
+        HIDE = "rbxassetid://6518812167"
+    }
+}
+
+-- Internal variables
+local NotificationSystem = {}
+local activeNotification = nil
+local container = nil
+
+-- Initialize container
+local function createContainer()
+    if container then return container end
+    
+    local player = Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "NotificationSystem"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = playerGui
+    
+    container = Instance.new("Frame")
+    container.Name = "NotificationContainer"
+    container.BackgroundTransparency = 1
+    container.Size = UDim2.new(1, 0, 1, 0)
+    container.Parent = screenGui
+    
+    return container
+end
+
+-- Animate notification in
+local function animateIn(notification)
+    local frame = notification.Frame
+    local messageLabel = frame:WaitForChild("Message")
+    
+    -- Wait for text to wrap and calculate proper size
+    RunService.Heartbeat:Wait()
+    local height = messageLabel.AbsoluteSize.Y + Config.PADDING * 2
+    
+    -- Set initial state
+    frame.Size = UDim2.new(0, Config.MAX_WIDTH, 0, 0)
+    frame.Position = UDim2.new(0.5, -Config.MAX_WIDTH/2, 0.5, 0)
+    frame.BackgroundTransparency = 1
+    
+    -- Animate frame
+    TweenService:Create(
+        frame,
+        TweenInfo.new(Config.FADE_TIME, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        {
+            Size = UDim2.new(0, Config.MAX_WIDTH, 0, height),
+            Position = UDim2.new(0.5, -Config.MAX_WIDTH/2, 0.5, -height/2),
+            BackgroundTransparency = 0
+        }
+    ):Play()
+    
+    -- Animate children
+    for _, child in pairs(frame:GetDescendants()) do
+        if child:IsA("TextLabel") then
+            child.TextTransparency = 1
+            TweenService:Create(
+                child,
+                TweenInfo.new(Config.FADE_TIME, Enum.EasingStyle.Quint),
+                {TextTransparency = 0}
+            ):Play()
+        elseif child:IsA("Frame") and child.Name == "ProgressBar" then
+            child.BackgroundTransparency = 1
+            TweenService:Create(
+                child,
+                TweenInfo.new(Config.FADE_TIME, Enum.EasingStyle.Quint),
+                {BackgroundTransparency = 0.8}
+            ):Play()
+        end
+    end
+end
+
+-- Animate notification out
+local function animateOut(notification, callback)
+    local frame = notification.Frame
+    
+    -- Animate frame
+    TweenService:Create(
+        frame,
+        TweenInfo.new(Config.FADE_TIME, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+        {
+            Size = UDim2.new(0, Config.MAX_WIDTH, 0, 0),
+            Position = UDim2.new(0.5, -Config.MAX_WIDTH/2, 0.5, 0),
+            BackgroundTransparency = 1
+        }
+    ):Play()
+    
+    -- Animate children
+    for _, child in pairs(frame:GetDescendants()) do
+        if child:IsA("TextLabel") then
+            TweenService:Create(
+                child,
+                TweenInfo.new(Config.FADE_TIME, Enum.EasingStyle.Quint),
+                {TextTransparency = 1}
+            ):Play()
+        elseif child:IsA("Frame") and child.Name == "ProgressBar" then
+            TweenService:Create(
+                child,
+                TweenInfo.new(Config.FADE_TIME, Enum.EasingStyle.Quint),
+                {BackgroundTransparency = 1}
+            ):Play()
+        end
+    end
+    
+    -- Cleanup after animation
+    task.delay(Config.FADE_TIME, function()
+        if callback then callback() end
+    end)
+end
+
+-- Create notification UI
+local function createNotification(options)
+    local message = options.message or ""
+    local duration = options.duration or Config.DEFAULT_DURATION
+    
+    -- Create main frame
+    local frame = Instance.new("Frame")
+    frame.Name = "Notification"
+    frame.BackgroundColor3 = Config.COLORS.BACKGROUND
+    frame.BorderSizePixel = 0
+    frame.ClipsDescendants = true
+    
+    -- Add corner radius
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, Config.CORNER_RADIUS)
+    corner.Parent = frame
+    
+    -- Add shadow
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.BackgroundTransparency = 1
+    shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    shadow.Size = UDim2.new(1, 40, 1, 40)
+    shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    shadow.Image = "rbxassetid://6014054906"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.5
+    shadow.Parent = frame
+    
+    -- Create message
+    local messageLabel = Instance.new("TextLabel")
+    messageLabel.Name = "Message"
+    messageLabel.BackgroundTransparency = 1
+    messageLabel.Size = UDim2.new(1, -Config.PADDING * 2, 0, 0)
+    messageLabel.Position = UDim2.new(0, Config.PADDING, 0, Config.PADDING)
+    messageLabel.Font = Config.FONT
+    messageLabel.TextSize = Config.MESSAGE_SIZE
+    messageLabel.TextColor3 = Config.COLORS.TEXT
+    messageLabel.TextWrapped = true
+    messageLabel.AutomaticSize = Enum.AutomaticSize.Y
+    messageLabel.Text = message
+    messageLabel.Parent = frame
+    
+    -- Add progress bar
+    local progressBar = Instance.new("Frame")
+    progressBar.Name = "ProgressBar"
+    progressBar.BorderSizePixel = 0
+    progressBar.BackgroundColor3 = Config.COLORS.PROGRESS
+    progressBar.BackgroundTransparency = 0.8
+    progressBar.Size = UDim2.new(1, 0, 0, 2)
+    progressBar.Position = UDim2.new(0, 0, 1, -2)
+    progressBar.Parent = frame
+    
+    frame.Parent = container
+    
+    -- Create notification object
+    local notification = {
+        Frame = frame,
+        StartTime = tick(),
+        Duration = duration
+    }
+    
+    -- Play show sound
+    local sound = Instance.new("Sound")
+    sound.SoundId = Config.SOUNDS.SHOW
+    sound.Volume = 0.5
+    sound.Parent = frame
+    sound:Play()
+    game:GetService("Debris"):AddItem(sound, 1)
+    
+    -- Animate progress bar
+    TweenService:Create(
+        progressBar,
+        TweenInfo.new(duration, Enum.EasingStyle.Linear),
+        {Size = UDim2.new(0, 0, 0, 2)}
+    ):Play()
+    
+    -- Store as active notification
+    if activeNotification then
+        NotificationSystem.close(activeNotification)
+    end
+    activeNotification = notification
+    
+    -- Animate in
+    animateIn(notification)
+    
+    -- Auto close after duration
+    task.delay(duration, function()
+        NotificationSystem.close(notification)
+    end)
+    
+    return notification
+end
+
+-- Close notification
+function NotificationSystem.close(notification)
+    if notification ~= activeNotification then return end
+    
+    -- Play hide sound
+    local sound = Instance.new("Sound")
+    sound.SoundId = Config.SOUNDS.HIDE
+    sound.Volume = 0.5
+    sound.Parent = notification.Frame
+    sound:Play()
+    
+    -- Animate out
+    animateOut(notification, function()
+        notification.Frame:Destroy()
+        activeNotification = nil
+    end)
+end
+
+-- Initialize
+function NotificationSystem.init()
+    createContainer()
+    return NotificationSystem
+end
+
+-- Main notification function
+function NotificationSystem.notify(options)
+    if not container then NotificationSystem.init() end
+    return createNotification(options)
+end
+
+-- Shorthand functions
+function NotificationSystem.log(message, duration)
+    return NotificationSystem.notify({
+        message = message,
+        duration = duration
+    })
+end
+
+-- Allow calling the module directly as a function
+return setmetatable(NotificationSystem, {
+    __call = function(_, ...)
+        return NotificationSystem.log(...)
+    end
+})
