@@ -18,16 +18,15 @@ local Config = {
     MESSAGE_SIZE = 15.5,
     DEFAULT_DURATION = 3.5,
     FADE_TIME = 0.755,
-    PADDING = 16,
-    MARGIN = 8,
+    PADDING = 18,
+    MARGIN = 10,
     COLORS = {
         BACKGROUND = Color3.fromRGB(32, 34, 37),
         TEXT = Color3.fromRGB(255, 255, 255),
-        ACCENT = Color3.fromRGB(255, 0, 255), -- Unused, but more vibrant (magenta)
+        ACCENT = Color3.fromRGB(255, 0, 255), 
         PROGRESS = Color3.fromRGB(255, 255, 255),
-        -- Brighter pink for the glow
         GLOW = Color3.fromRGB(255, 40, 180),
-        BRIGHT_GLOW = Color3.fromRGB(255, 0, 255) -- Full bright magenta for moving light
+        BRIGHT_GLOW = Color3.fromRGB(255, 0, 255) 
     },
     SOUNDS = {
         SHOW = "rbxassetid://6518811702",
